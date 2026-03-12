@@ -1,11 +1,12 @@
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 
-import 'collision_block.dart';
+import 'character.dart';
 import 'enemy.dart';
 import 'health_hud.dart';
 
-class Player extends SpriteAnimationComponent with CollisionCallbacks {
+class Player extends SpriteAnimationComponent
+    with CollisionCallbacks, CharacterMixin {
   Player({super.position, required this.joystick})
     : super(size: Vector2(192, 192), anchor: Anchor.center);
 
@@ -14,66 +15,61 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
   // ---------------------------------------------------------------------------
   // Spritesheets
   // ---------------------------------------------------------------------------
-  static const String idleAnimationPath =
-      'Swordsman_lvl3_Idle_without_shadow.png';
-  static const int idleAnimationColumns = 12;
+  static const String _idlePath = 'Swordsman_lvl3_Idle_without_shadow.png';
+  static const int _idleColumns = 12;
 
-  static const String walkAnimationPath =
-      'Swordsman_lvl3_Walk_without_shadow.png';
-  static const int walkAnimationColumns = 6;
+  static const String _walkPath = 'Swordsman_lvl3_Walk_without_shadow.png';
+  static const int _walkColumns = 6;
 
-  static const String runAnimationPath =
-      'Swordsman_lvl3_Run_without_shadow.png';
-  static const int runAnimationColumns = 8;
+  static const String _runPath = 'Swordsman_lvl3_Run_without_shadow.png';
+  static const int _runColumns = 8;
 
-  static const String attackAnimationPath =
-      'Swordsman_lvl3_attack_without_shadow.png';
-  static const int attackAnimationColumns = 8;
+  static const String _attackPath = 'Swordsman_lvl3_attack_without_shadow.png';
+  static const int _attackColumns = 8;
 
-  static const String hurtAnimationPath =
-      'Swordsman_lvl3_Hurt_without_shadow.png';
-  static const int hurtAnimationColumns = 6;
+  static const String _hurtPath = 'Swordsman_lvl3_Hurt_without_shadow.png';
+  static const int _hurtColumns = 6;
 
-  static const String deathAnimationPath =
-      'Swordsman_lvl3_Death_without_shadow.png';
-  static const int deathAnimationColumns = 7;
+  static const String _deathPath = 'Swordsman_lvl3_Death_without_shadow.png';
+  static const int _deathColumns = 7;
 
   // ---------------------------------------------------------------------------
   // Constantes
   // ---------------------------------------------------------------------------
-  static const int _rows = 4;
-  static const double stepTime = 0.2;
-  static const double _frameWidth = 64.0;
-  static const double _frameHeight = 64.0;
+  static const double _stepTime = 0.2;
   static const double _walkSpeed = 100.0;
   static const double _runSpeed = 200.0;
   static const double _runThreshold = 0.6;
 
-  // Hitbox
   static const Vector2 _hitboxSize = Vector2(32, 32);
   static const Vector2 _hitboxOffset = Vector2(80, 140);
+
+  /// Mapping des directions pour la spritesheet du joueur.
+  /// Lignes : 0=bas, 1=gauche, 2=droite, 3=haut
+  static const DirectionMap _dirMap = DirectionMap(
+    down: 0, left: 1, right: 2, up: 3,
+  );
 
   // ---------------------------------------------------------------------------
   // Animations
   // ---------------------------------------------------------------------------
-  late final List<SpriteAnimation> idleAnimation;
-  late final List<SpriteAnimation> walkAnimation;
-  late final List<SpriteAnimation> runAnimation;
-  late final List<SpriteAnimation> attackAnimation;
-  late final List<SpriteAnimation> hurtAnimation;
-  late final List<SpriteAnimation> deathAnimation;
+  late final List<SpriteAnimation> _idleAnim;
+  late final List<SpriteAnimation> _walkAnim;
+  late final List<SpriteAnimation> _runAnim;
+  late final List<SpriteAnimation> _attackAnim;
+  late final List<SpriteAnimation> _hurtAnim;
+  late final List<SpriteAnimation> _deathAnim;
 
   // ---------------------------------------------------------------------------
   // État
   // ---------------------------------------------------------------------------
-  int currentRow = 0;
-  bool isMoving = false;
-  bool isRunning = false;
+  int _currentRow = 0;
+  bool _isMoving = false;
+  bool _isRunning = false;
   bool isAttacking = false;
-  bool isHurt = false;
+  bool _isHurt = false;
   bool isDead = false;
-
-  Vector2 _lastPosition = Vector2.zero();
+  bool _hasDealtDamageThisAttack = false;
 
   /// Points de vie
   int maxHealth = 5;
@@ -84,83 +80,51 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
 
   /// Cooldown pour éviter de prendre des dégâts trop vite
   double _hurtCooldown = 0;
-  static const double _hurtCooldownDuration = 1.0; // 1 seconde d'invincibilité
+  static const double _hurtCooldownDuration = 1.0;
 
   // ---------------------------------------------------------------------------
   // Chargement
   // ---------------------------------------------------------------------------
   @override
   Future<void> onLoad() async {
-    idleAnimation = [];
-    walkAnimation = [];
-    runAnimation = [];
-    attackAnimation = [];
-    hurtAnimation = [];
-    deathAnimation = [];
-
-    for (var row = 0; row < _rows; row++) {
-      final idleColumns = (row == 3) ? 3 : idleAnimationColumns;
-
-      idleAnimation.add(await _loadRow(
-        idleAnimationPath, idleColumns, stepTime, row, true,
-      ));
-      walkAnimation.add(await _loadRow(
-        walkAnimationPath, walkAnimationColumns, stepTime, row, true,
-      ));
-      runAnimation.add(await _loadRow(
-        runAnimationPath, runAnimationColumns, 0.07, row, true,
-      ));
-      attackAnimation.add(await _loadRow(
-        attackAnimationPath, attackAnimationColumns, 0.1, row, false,
-      ));
-      hurtAnimation.add(await _loadRow(
-        hurtAnimationPath, hurtAnimationColumns, 0.1, row, false,
-      ));
-      deathAnimation.add(await _loadRow(
-        deathAnimationPath, deathAnimationColumns, 0.12, row, false,
-      ));
+    try {
+      _idleAnim = await loadAllRows(
+        path: _idlePath, columns: _idleColumns, stepTime: _stepTime, loop: true,
+        columnOverrides: {3: 3},
+      );
+      _walkAnim = await loadAllRows(
+        path: _walkPath, columns: _walkColumns, stepTime: _stepTime, loop: true,
+      );
+      _runAnim = await loadAllRows(
+        path: _runPath, columns: _runColumns, stepTime: 0.07, loop: true,
+      );
+      _attackAnim = await loadAllRows(
+        path: _attackPath, columns: _attackColumns, stepTime: 0.1, loop: false,
+      );
+      _hurtAnim = await loadAllRows(
+        path: _hurtPath, columns: _hurtColumns, stepTime: 0.1, loop: false,
+      );
+      _deathAnim = await loadAllRows(
+        path: _deathPath, columns: _deathColumns, stepTime: 0.12, loop: false,
+      );
+    } catch (e) {
+      throw StateError('Impossible de charger les sprites du joueur : $e');
     }
 
-    animation = idleAnimation[currentRow];
+    animation = _idleAnim[_currentRow];
     playing = true;
 
-    add(
-      RectangleHitbox(
-        size: _hitboxSize,
-        position: _hitboxOffset,
-      ),
-    );
-  }
-
-  /// Charge une animation pour une ligne donnée
-  Future<SpriteAnimation> _loadRow(
-    String path, int columns, double step, int row, bool loop,
-  ) async {
-    return SpriteAnimation.load(
-      path,
-      SpriteAnimationData.sequenced(
-        amount: columns,
-        stepTime: step,
-        textureSize: Vector2(_frameWidth, _frameHeight),
-        texturePosition: Vector2(0, row * _frameHeight),
-        loop: loop,
-      ),
-    );
+    add(RectangleHitbox(size: _hitboxSize, position: _hitboxOffset));
   }
 
   // ---------------------------------------------------------------------------
   // Dégâts et mort
   // ---------------------------------------------------------------------------
-
-  /// Appelé quand un ennemi touche le joueur
   void takeDamage(int damage) {
-    if (isDead) return;
-    if (_hurtCooldown > 0) return; // Encore invincible
+    if (isDead || _hurtCooldown > 0) return;
 
     health -= damage;
     _hurtCooldown = _hurtCooldownDuration;
-
-    // Met à jour le HUD
     healthHud?.updateHealth(health);
 
     if (health <= 0) {
@@ -171,45 +135,45 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
   }
 
   void _playHurt() {
-    isHurt = true;
-    animation = hurtAnimation[currentRow];
+    _isHurt = true;
+    animation = _hurtAnim[_currentRow];
     animationTicker!.reset();
     animationTicker!.onComplete = () {
-      isHurt = false;
+      _isHurt = false;
     };
   }
 
   void _die() {
     isDead = true;
     isAttacking = false;
-    isHurt = false;
-    animation = deathAnimation[currentRow];
+    _isHurt = false;
+    animation = _deathAnim[_currentRow];
     animationTicker!.reset();
 
     animationTicker!.onComplete = () {
-      // Fige l'animation sur la dernière frame (le cadavre au sol)
-      animationTicker!.currentIndex = deathAnimation[currentRow].frames.length - 1;
-      animationTicker!.update(0); // Force l'affichage de cette frame
+      animationTicker!.currentIndex =
+          _deathAnim[_currentRow].frames.length - 1;
+      animationTicker!.update(0);
       playing = false;
-
       // TODO: afficher un écran de Game Over
     };
   }
+
   // ---------------------------------------------------------------------------
   // Attaque
   // ---------------------------------------------------------------------------
   void attack() {
-    if (isAttacking || isHurt || isDead) return;
+    if (isAttacking || _isHurt || isDead) return;
     isAttacking = true;
     _hasDealtDamageThisAttack = false;
 
-    animation = attackAnimation[currentRow];
+    animation = _attackAnim[_currentRow];
     animationTicker!.reset();
     animationTicker!.onComplete = () {
       isAttacking = false;
-      animation = isMoving
-          ? (isRunning ? runAnimation[currentRow] : walkAnimation[currentRow])
-          : idleAnimation[currentRow];
+      animation = _isMoving
+          ? (_isRunning ? _runAnim[_currentRow] : _walkAnim[_currentRow])
+          : _idleAnim[_currentRow];
     };
   }
 
@@ -220,13 +184,8 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
   void update(double dt) {
     super.update(dt);
 
-    // Réduit le cooldown d'invincibilité
-    if (_hurtCooldown > 0) {
-      _hurtCooldown -= dt;
-    }
-
-    // Pas de mouvement si mort ou blessé
-    if (isDead || isHurt) return;
+    if (_hurtCooldown > 0) _hurtCooldown -= dt;
+    if (isDead || _isHurt) return;
 
     final input = joystick.relativeDelta;
     final distance = input.length;
@@ -235,56 +194,37 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
 
     if (moving) {
       final speed = running ? _runSpeed : _walkSpeed;
-      _lastPosition = position.clone();
+      lastPosition = position.clone();
       position += input.normalized() * speed * dt;
-      currentRow = _rowsFromInput(input);
-      isMoving = true;
-      isRunning = running;
+      _currentRow = _dirMap.fromVector(input);
+      _isMoving = true;
+      _isRunning = running;
     } else {
-      isMoving = false;
-      isRunning = false;
+      _isMoving = false;
+      _isRunning = false;
     }
 
     if (isAttacking) return;
 
     if (moving) {
-      animation = running
-          ? runAnimation[currentRow]
-          : walkAnimation[currentRow];
+      animation = running ? _runAnim[_currentRow] : _walkAnim[_currentRow];
     } else {
-      animation = idleAnimation[currentRow];
+      animation = _idleAnim[_currentRow];
     }
   }
 
   // ---------------------------------------------------------------------------
   // Collisions
   // ---------------------------------------------------------------------------
-  /// Empêche d'infliger des dégâts à chaque frame pendant l'attaque
-  bool _hasDealtDamageThisAttack = false;
-
   @override
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
 
-    if (other is CollisionBlock) {
-      position = _lastPosition;
-    }
+    handleBlockCollision(other);
 
-    // Le joueur attaque un ennemi → dégâts à l'ennemi (une seule fois par attaque)
     if (other is Enemy && isAttacking && !_hasDealtDamageThisAttack) {
       other.takeDamage(1);
       _hasDealtDamageThisAttack = true;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Utilitaire
-  // ---------------------------------------------------------------------------
-  int _rowsFromInput(Vector2 input) {
-    if (input.x.abs() > input.y.abs()) {
-      return input.x > 0 ? 2 : 1;
-    } else {
-      return input.y > 0 ? 0 : 3;
     }
   }
 }

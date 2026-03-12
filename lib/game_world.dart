@@ -43,7 +43,12 @@ class MyWorld extends World {
     // Cela garantit qu'il reste fixe à l'écran même quand la caméra bouge.
     findGame()!.camera.viewport.add(joystick);
 
-    final map = await TiledComponent.load('Dungeon1.tmx', Vector2.all(64));
+    final TiledComponent map;
+    try {
+      map = await TiledComponent.load('Dungeon1.tmx', Vector2.all(64));
+    } catch (e) {
+      throw StateError('Impossible de charger la carte Dungeon1.tmx : $e');
+    }
     add(map);
 
     // ---------------------------------------------------------------------------
