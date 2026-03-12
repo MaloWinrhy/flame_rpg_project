@@ -5,6 +5,8 @@ import 'package:flame/input.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/widgets.dart';
 import 'package:game/collision_block.dart';
+import 'package:game/enemy.dart';
+import 'package:game/health_hud.dart';
 
 import 'player.dart';
 
@@ -51,28 +53,26 @@ class MyWorld extends World {
     // Charge les colisions depuis la map
     // ---------------------------------------------------------------------------
 
-    const tileDisplaySize = 64.0;
+  const tileDisplaySize = 64.0;
+    const tileRealSize = 16.0;
+    const scale = tileDisplaySize / tileRealSize;
 
-    final wallsLayer = map.tileMap.getLayer<TileLayer>('Walls');
-    if (wallsLayer != null) {
-      final mapW = map.tileMap.map.width;
-      final mapH = map.tileMap.map.height;
-
+    final collisionLayer = map.tileMap.getLayer<ObjectGroup>('Collisions');
+    if (collisionLayer != null) {
       int count = 0;
-      for (var y = 0; y < mapH; y++) {
-        for (var x = 0; x < mapW; x++) {
-          final gid = wallsLayer.tileData![y][x].tile;
-          if (gid != 0) {
-            add(
-              CollisionBlock(
-                position: Vector2(x * tileDisplaySize, y * tileDisplaySize),
-                size: Vector2.all(tileDisplaySize),
-              ),
-            );
-            count++;
-          }
+      for (final obj in collisionLayer.objects) {
+        // Ignore les objets de taille 0 (points)
+        if (obj.width > 0 && obj.height > 0) {
+          add(
+            CollisionBlock(
+              position: Vector2(obj.x * scale, obj.y * scale),
+              size: Vector2(obj.width * scale, obj.height * scale),
+            ),
+          );
+          count++;
         }
       }
+    } else {
     }
 
     // -------------------------------------------------------------------------
@@ -87,6 +87,29 @@ class MyWorld extends World {
       joystick: joystick,
     );
 
+        // -------------------------------------------------------------------------
+    // Ennemy AU CENTRE de la carte (pas à 0,0)
+    // -------------------------------------------------------------------------
+
+      // -------------------------------------------------------------------------
+    // HUD : cœurs de vie en haut de l'écran
+    // -------------------------------------------------------------------------
+    final healthHud = HealthHud(maxHealth: player.maxHealth);
+    healthHud.priority = 100;
+    findGame()!.camera.viewport.add(healthHud);
+
+    // Lie le HUD au joueur pour que les dégâts mettent à jour l'affichage
+    player.healthHud = healthHud;
+
+    // -------------------------------------------------------------------------
+    // Ennemi
+    // -------------------------------------------------------------------------
+
+    final enemy = Enemy(
+      position: Vector2(mapWidth / 2 + 200, mapHeight / 2),
+      player: player,
+    );
+    add(enemy);
     // -------------------------------------------------------------------------
     // Création du bouton d'attaque (cercle rouge en bas à droite)
     // -------------------------------------------------------------------------

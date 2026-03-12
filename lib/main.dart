@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import 'game_world.dart';
 
-class MyGame extends FlameGame with HasCollisionDetection {
+class MyGame extends FlameGame {
   MyGame() : super(world: MyWorld());
 
    
@@ -12,7 +12,9 @@ class MyGame extends FlameGame with HasCollisionDetection {
 }
 void main() {
   runApp(
+    
     GameWidget(
+      
       game: MyGame()
     ),
   );
