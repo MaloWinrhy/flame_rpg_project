@@ -46,22 +46,16 @@ class MyWorld extends World {
     final map = await TiledComponent.load('Dungeon1.tmx', Vector2.all(64));
     add(map);
 
-    for (final layer in map.tileMap.map.layers) {
-      print('Layer trouvée : "${layer.name}" (type: ${layer.type})');
-    }
     // ---------------------------------------------------------------------------
-    // Charge les colisions depuis la map
+    // Charge les collisions depuis la map
     // ---------------------------------------------------------------------------
-
-  const tileDisplaySize = 64.0;
+    const tileDisplaySize = 64.0;
     const tileRealSize = 16.0;
     const scale = tileDisplaySize / tileRealSize;
 
     final collisionLayer = map.tileMap.getLayer<ObjectGroup>('Collisions');
     if (collisionLayer != null) {
-      int count = 0;
       for (final obj in collisionLayer.objects) {
-        // Ignore les objets de taille 0 (points)
         if (obj.width > 0 && obj.height > 0) {
           add(
             CollisionBlock(
@@ -69,10 +63,8 @@ class MyWorld extends World {
               size: Vector2(obj.width * scale, obj.height * scale),
             ),
           );
-          count++;
         }
       }
-    } else {
     }
 
     // -------------------------------------------------------------------------
@@ -80,18 +72,12 @@ class MyWorld extends World {
     // -------------------------------------------------------------------------
     final mapWidth = map.tileMap.map.width * tileDisplaySize;
     final mapHeight = map.tileMap.map.height * tileDisplaySize;
-    print('Taille carte : $mapWidth x $mapHeight');
-
     final player = Player(
       position: Vector2(mapWidth / 2, mapHeight / 2),
       joystick: joystick,
     );
 
-        // -------------------------------------------------------------------------
-    // Ennemy AU CENTRE de la carte (pas à 0,0)
     // -------------------------------------------------------------------------
-
-      // -------------------------------------------------------------------------
     // HUD : cœurs de vie en haut de l'écran
     // -------------------------------------------------------------------------
     final healthHud = HealthHud(maxHealth: player.maxHealth);
