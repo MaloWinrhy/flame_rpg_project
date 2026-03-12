@@ -1,9 +1,11 @@
 import 'package:flame/components.dart';
+import 'package:game/collision_block.dart';
+import 'package:flame/collisions.dart'; 
 
 /// Classe représentant le joueur (un épéiste niveau 3).
 /// Elle hérite de [SpriteAnimationComponent] pour gérer
 /// l'affichage et l'animation du sprite à l'écran.
-class Player extends SpriteAnimationComponent {
+class Player extends SpriteAnimationComponent with CollisionCallbacks {
   /// Constructeur : reçoit une position et un joystick.
   /// Le sprite fait 192x192 pixels à l'écran, ancré au centre.
   Player({super.position, required this.joystick})
@@ -61,10 +63,10 @@ class Player extends SpriteAnimationComponent {
   // Listes d'animations : une animation par direction (index = ligne du sprite)
   // ---------------------------------------------------------------------------
 
-  late final List<SpriteAnimation> idleAnimation;   // Repos
-  late final List<SpriteAnimation> walkAnimation;    // Marche
-  late final List<SpriteAnimation> runAnimation;     // Course
-  late final List<SpriteAnimation> attackAnimation;  // Attaque
+  late final List<SpriteAnimation> idleAnimation; // Repos
+  late final List<SpriteAnimation> walkAnimation; // Marche
+  late final List<SpriteAnimation> runAnimation; // Course
+  late final List<SpriteAnimation> attackAnimation; // Attaque
 
   /// Direction actuelle du joueur (index de la ligne du spritesheet).
   int currentRow = 0;
@@ -73,6 +75,9 @@ class Player extends SpriteAnimationComponent {
   bool isMoving = false;
   bool isRunning = false;
   bool isAttacking = false;
+
+  //Collision
+  Vector2 _lastPosition = Vector2.zero();
 
   // ---------------------------------------------------------------------------
   // Chargement des animations au démarrage
@@ -96,11 +101,17 @@ class Player extends SpriteAnimationComponent {
         await SpriteAnimation.load(
           idleAnimationPath,
           SpriteAnimationData.sequenced(
-            amount: idleColumns,              // Nombre de frames
-            stepTime: stepTime,               // Durée par frame
-            textureSize: Vector2(_frameWidth, _frameHeight), // Taille d'une frame
-            texturePosition: Vector2(0, row * _frameHeight), // Décalage Y selon la ligne
-            loop: true,                       // Boucle infinie
+            amount: idleColumns, // Nombre de frames
+            stepTime: stepTime, // Durée par frame
+            textureSize: Vector2(
+              _frameWidth,
+              _frameHeight,
+            ), // Taille d'une frame
+            texturePosition: Vector2(
+              0,
+              row * _frameHeight,
+            ), // Décalage Y selon la ligne
+            loop: true, // Boucle infinie
           ),
         ),
       );
@@ -153,8 +164,32 @@ class Player extends SpriteAnimationComponent {
     // On démarre avec l'animation idle (repos) face vers le bas (ligne 0)
     animation = idleAnimation[currentRow];
     playing = true;
-  }
 
+  // ---------------------------------------------------------------------------
+  // Gestion de la HITBOX player
+  // ---------------------------------------------------------------------------
+
+    /// la taille de la frame du personnage 192x192
+    add(RectangleHitbox(
+      size: Vector2(32, 32),
+      position: Vector2(80, 110),),);
+ }
+
+
+  // ---------------------------------------------------------------------------
+  // Gestion des collisions entre 2 HITBOX
+  // ---------------------------------------------------------------------------
+ @override
+  void onCollision(
+    Set<Vector2> intersectionPoints,
+    PositionComponent other,
+  ) {
+    super.onCollision(intersectionPoints, other);
+
+    if (other is CollisionBlock) {
+      position = _lastPosition;
+    }
+  }
   // ---------------------------------------------------------------------------
   // Gestion de l'attaque
   // ---------------------------------------------------------------------------
@@ -190,15 +225,19 @@ class Player extends SpriteAnimationComponent {
 
     // Récupère l'entrée du joystick (vecteur normalisé entre 0 et 1)
     final input = joystick.relativeDelta;
-    final distance = input.length; // Intensité du joystick (0 = neutre, 1 = max)
+    final distance =
+        input.length; // Intensité du joystick (0 = neutre, 1 = max)
 
     // Détermine si le joueur bouge et s'il court
-    final moving = distance > 0.01;          // Petite zone morte pour éviter le bruit
+    final moving = distance > 0.01; // Petite zone morte pour éviter le bruit
     final running = distance > _runThreshold; // Au-delà du seuil → course
 
     if (moving) {
       // Calcul du déplacement : direction normalisée × vitesse × temps écoulé
       final speed = running ? _runSpeed : _walkSpeed;
+      //COLLISION : et regardant la position actuelle
+      _lastPosition = position.clone();
+      // Sauvegarde de la position actuelle avant de se déplacer
       position += input.normalized() * speed * dt;
 
       // Met à jour la direction (ligne du spritesheet) selon l'entrée
@@ -216,7 +255,7 @@ class Player extends SpriteAnimationComponent {
     // Sélection de l'animation selon l'état actuel
     if (moving) {
       animation = running
-          ? runAnimation[currentRow]   // Course
+          ? runAnimation[currentRow] // Course
           : walkAnimation[currentRow]; // Marche
     } else {
       animation = idleAnimation[currentRow]; // Repos

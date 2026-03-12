@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/input.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/widgets.dart';
+import 'package:game/collision_block.dart';
 
 import 'player.dart';
 
@@ -23,12 +24,14 @@ class MyWorld extends World {
       // Le "knob" est le petit cercle central que le joueur déplace avec le doigt
       knob: CircleComponent(
         radius: 28,
-        paint: Paint()..color = const Color(0xCCFFFFFF), // Blanc semi-transparent
+        paint: Paint()
+          ..color = const Color(0xCCFFFFFF), // Blanc semi-transparent
       ),
       // Le "background" est le grand cercle fixe qui délimite la zone du joystick
       background: CircleComponent(
         radius: 64,
-        paint: Paint()..color = const Color(0x66FFFFFF), // Blanc plus transparent
+        paint: Paint()
+          ..color = const Color(0x66FFFFFF), // Blanc plus transparent
       ),
       // Position du joystick : en bas à gauche de l'écran
       margin: const EdgeInsets.only(left: 32, bottom: 32),
@@ -38,18 +41,51 @@ class MyWorld extends World {
     // Cela garantit qu'il reste fixe à l'écran même quand la caméra bouge.
     findGame()!.camera.viewport.add(joystick);
 
-    final map = await TiledComponent.load(
-      'Dungeon1.tmx',
-      Vector2.all(64),
-    );
+    final map = await TiledComponent.load('Dungeon1.tmx', Vector2.all(64));
     add(map);
 
+    for (final layer in map.tileMap.map.layers) {
+      print('Layer trouvée : "${layer.name}" (type: ${layer.type})');
+    }
+    // ---------------------------------------------------------------------------
+    // Charge les colisions depuis la map
+    // ---------------------------------------------------------------------------
+
+    const tileDisplaySize = 64.0;
+
+    final wallsLayer = map.tileMap.getLayer<TileLayer>('Walls');
+    if (wallsLayer != null) {
+      final mapW = map.tileMap.map.width;
+      final mapH = map.tileMap.map.height;
+
+      int count = 0;
+      for (var y = 0; y < mapH; y++) {
+        for (var x = 0; x < mapW; x++) {
+          final gid = wallsLayer.tileData![y][x].tile;
+          if (gid != 0) {
+            add(
+              CollisionBlock(
+                position: Vector2(x * tileDisplaySize, y * tileDisplaySize),
+                size: Vector2.all(tileDisplaySize),
+              ),
+            );
+            count++;
+          }
+        }
+      }
+    }
 
     // -------------------------------------------------------------------------
-    // Création du joueur au centre du monde (position 0, 0)
-    // On lui passe le joystick pour qu'il puisse lire les entrées
+    // Joueur AU CENTRE de la carte (pas à 0,0)
     // -------------------------------------------------------------------------
-    final player = Player(position: Vector2.zero(), joystick: joystick);
+    final mapWidth = map.tileMap.map.width * tileDisplaySize;
+    final mapHeight = map.tileMap.map.height * tileDisplaySize;
+    print('Taille carte : $mapWidth x $mapHeight');
+
+    final player = Player(
+      position: Vector2(mapWidth / 2, mapHeight / 2),
+      joystick: joystick,
+    );
 
     // -------------------------------------------------------------------------
     // Création du bouton d'attaque (cercle rouge en bas à droite)
@@ -76,7 +112,5 @@ class MyWorld extends World {
     // La caméra suit le joueur : le personnage reste toujours au centre de l'écran,
     // et c'est le monde autour qui "défile"
     findGame()!.camera.follow(player);
-
-    
   }
 }
