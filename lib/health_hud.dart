@@ -12,7 +12,7 @@ class HealthHud extends PositionComponent {
   HealthHud({required this.maxHealth})
     : currentHealth = maxHealth,
       super(
-        position: Vector2(20, 20),
+        position: Vector2(40, 60),
         anchor: Anchor.topLeft,
       );
 

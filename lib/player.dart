@@ -36,7 +36,7 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
 
   static const String deathAnimationPath =
       'Swordsman_lvl3_Death_without_shadow.png';
-  static const int deathAnimationColumns = 8;
+  static const int deathAnimationColumns = 7;
 
   // ---------------------------------------------------------------------------
   // Constantes
@@ -177,7 +177,7 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
     };
   }
 
-  void _die() {
+void _die() {
     isDead = true;
     isAttacking = false;
     isHurt = false;
@@ -185,13 +185,14 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
     animationTicker!.reset();
 
     animationTicker!.onComplete = () {
-      // Le joueur reste mort au sol
-      // TODO : écran de game over
-      print('GAME OVER');
+      // Fige l'animation sur la dernière frame (le cadavre au sol)
+      animationTicker!.currentIndex = deathAnimation[currentRow].frames.length - 1;
+      animationTicker!.update(0); // Force l'affichage de cette frame
       playing = false;
+
+      print('GAME OVER');
     };
   }
-
   // ---------------------------------------------------------------------------
   // Attaque
   // ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
   Enemy({required Vector2 position, required this.player})
     : super(
         position: position,
-        size: Vector2(128, 128),
+        size: Vector2(200, 200),
         anchor: Anchor.center,
       );
 
@@ -36,7 +36,7 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
   static const double _frameHeight = 64.0;
 
   // Augmentez le range d'attaque pour qu'il attaque moins loin
-  static const double _attackRange = 860.0;
+  static const double _attackRange = 60.0;
 
   // Ajoutez un cooldown d'attaque pour qu'il n'attaque pas en boucle
   double _attackCooldown = 0;
@@ -151,10 +151,13 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
       _attackCooldown -= dt;
     }
 
-    final distanceToPlayer = position.distanceTo(player.position);
+final distanceToPlayer = position.distanceTo(player.position);
 
     if (distanceToPlayer < _attackRange && _attackCooldown <= 0) {
       _state = EnemyState.attack;
+    } else if (distanceToPlayer < _attackRange && _attackCooldown > 0) {
+      // À portée mais en cooldown → reste sur place et attend
+      _state = EnemyState.idle;
     } else if (distanceToPlayer < _detectionRange) {
       _state = EnemyState.chase;
     } else {
