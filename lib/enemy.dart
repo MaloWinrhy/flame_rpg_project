@@ -37,6 +37,11 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
 
   // Augmentez le range d'attaque pour qu'il attaque moins loin
   static const double _attackRange = 60.0;
+  static const double _attackDamageRange = 100.0; // Portée réelle des dégâts
+
+  // Hitbox
+  static const Vector2 _hitboxSize = Vector2(40, 40);
+  static const Vector2 _hitboxOffset = Vector2(44, 70);
 
   // Ajoutez un cooldown d'attaque pour qu'il n'attaque pas en boucle
   double _attackCooldown = 0;
@@ -82,6 +87,7 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
   late final Vector2 _startPosition;
   Vector2 _lastPosition = Vector2.zero();
   bool _isAttacking = false;
+  bool _isHurt = false;
 
   /// Points de vie du monstre
   int health = 3;
@@ -104,8 +110,8 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
     // Hitbox du monstre
     add(
       RectangleHitbox(
-        size: Vector2(40, 40),
-        position: Vector2(44, 70),
+        size: _hitboxSize,
+        position: _hitboxOffset,
       ),
     );
   }
@@ -144,14 +150,14 @@ class Enemy extends SpriteAnimationComponent with CollisionCallbacks {
     super.update(dt);
 
     if (_state == EnemyState.dead) return;
-    if (_isAttacking) return;
+    if (_isAttacking || _isHurt) return;
 
     // Réduit le cooldown d'attaque
     if (_attackCooldown > 0) {
       _attackCooldown -= dt;
     }
 
-final distanceToPlayer = position.distanceTo(player.position);
+    final distanceToPlayer = position.distanceTo(player.position);
 
     if (distanceToPlayer < _attackRange && _attackCooldown <= 0) {
       _state = EnemyState.attack;
@@ -209,7 +215,7 @@ final distanceToPlayer = position.distanceTo(player.position);
     animation = runAnim[_currentRow];
   }
 
-void _attack() {
+  void _attack() {
     _isAttacking = true;
     _attackCooldown = _attackCooldownDuration;
 
@@ -228,7 +234,7 @@ void _attack() {
       if (frameIndex == 4 && !hasDamaged) {
         hasDamaged = true;
         final dist = position.distanceTo(player.position);
-        if (dist < _attackRange + 40) {
+        if (dist < _attackDamageRange) {
           player.takeDamage(1);
         }
       }
@@ -248,17 +254,14 @@ void _attack() {
     if (_state == EnemyState.dead) return;
 
     health -= damage;
-    print('Orc touché ! PV restants : $health');
-
     if (health <= 0) {
       _die();
     } else {
-      // Animation de douleur
-      _isAttacking = true;
+      _isHurt = true;
       animation = hurtAnim[_currentRow];
       animationTicker!.reset();
       animationTicker!.onComplete = () {
-        _isAttacking = false;
+        _isHurt = false;
       };
     }
   }

@@ -49,6 +49,10 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
   static const double _runSpeed = 200.0;
   static const double _runThreshold = 0.6;
 
+  // Hitbox
+  static const Vector2 _hitboxSize = Vector2(32, 32);
+  static const Vector2 _hitboxOffset = Vector2(80, 140);
+
   // ---------------------------------------------------------------------------
   // Animations
   // ---------------------------------------------------------------------------
@@ -122,8 +126,8 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
 
     add(
       RectangleHitbox(
-        size: Vector2(32, 32),
-        position: Vector2(80, 140),
+        size: _hitboxSize,
+        position: _hitboxOffset,
       ),
     );
   }
@@ -159,8 +163,6 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
     // Met à jour le HUD
     healthHud?.updateHealth(health);
 
-    print('Joueur touché ! PV restants : $health');
-
     if (health <= 0) {
       _die();
     } else {
@@ -177,7 +179,7 @@ class Player extends SpriteAnimationComponent with CollisionCallbacks {
     };
   }
 
-void _die() {
+  void _die() {
     isDead = true;
     isAttacking = false;
     isHurt = false;
@@ -190,7 +192,7 @@ void _die() {
       animationTicker!.update(0); // Force l'affichage de cette frame
       playing = false;
 
-      print('GAME OVER');
+      // TODO: afficher un écran de Game Over
     };
   }
   // ---------------------------------------------------------------------------
@@ -199,6 +201,7 @@ void _die() {
   void attack() {
     if (isAttacking || isHurt || isDead) return;
     isAttacking = true;
+    _hasDealtDamageThisAttack = false;
 
     animation = attackAnimation[currentRow];
     animationTicker!.reset();
@@ -256,8 +259,10 @@ void _die() {
   // ---------------------------------------------------------------------------
   // Collisions
   // ---------------------------------------------------------------------------
+  /// Empêche d'infliger des dégâts à chaque frame pendant l'attaque
+  bool _hasDealtDamageThisAttack = false;
+
   @override
-@override
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
 
@@ -265,9 +270,10 @@ void _die() {
       position = _lastPosition;
     }
 
-    // Le joueur attaque un ennemi → dégâts à l'ennemi
-    if (other is Enemy && isAttacking) {
+    // Le joueur attaque un ennemi → dégâts à l'ennemi (une seule fois par attaque)
+    if (other is Enemy && isAttacking && !_hasDealtDamageThisAttack) {
       other.takeDamage(1);
+      _hasDealtDamageThisAttack = true;
     }
   }
 
